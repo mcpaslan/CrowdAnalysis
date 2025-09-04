@@ -19,12 +19,17 @@ Analiz sonuçlarını canlı olarak takip edebilir, geçmiş verileri görüntü
 """)
 
 # --- Veritabanı Yöneticisini Başlatma ---
-db_manager = DataManager()
+# @st.cache_resource, Streamlit'in objeyi önbelleğe almasını ve tekrar tekrar oluşturmamasını sağlar.
+@st.cache_resource
+def get_db_manager():
+    return DataManager()
+
+db_manager = get_db_manager()
+
 
 # --- AYARLAR BÖLÜMÜ (KENAR ÇUBUĞU) ---
 st.sidebar.header("Uygulama Durumu ve Ayarlar")
 
-# YENİ: Veritabanı bağlantı durumunu arayüzde göster
 if db_manager.conn:
     st.sidebar.success("Veritabanı bağlantısı aktif.")
 else:
@@ -51,6 +56,7 @@ clipping_percentile = st.sidebar.slider(
     help="Haritanın kontrastını ayarlar. Düşük değerler daha fazla alanı 'sıcak' (kırmızı) gösterir."
 )
 
+
 # --- Geçmiş Analizler Bölümü ---
 st.header("Geçmiş Analiz Oturumları")
 try:
@@ -59,10 +65,34 @@ try:
         df_sessions = pd.DataFrame(all_sessions, columns=['Oturum ID', 'Başlangıç Zamanı', 'Video Adı', 'Toplam Giriş',
                                                           'Toplam Çıkış'])
         st.dataframe(df_sessions, use_container_width=True)
+
+        # YENİ: Geçmiş bir oturumun detaylarını görmek için seçim kutusu
+        st.subheader("Geçmiş Oturum Detaylarını Görüntüle")
+        session_ids = ["Lütfen bir oturum seçin..."] + [str(s[0]) for s in all_sessions]
+        selected_session_id = st.selectbox("İncelemek istediğiniz Oturum ID'sini seçin:", options=session_ids)
+
+        # YENİ: Seçilen oturumun olay dökümünü veritabanından getir ve göster
+        if selected_session_id and selected_session_id != "Lütfen bir oturum seçin...":
+            try:
+                session_id_int = int(selected_session_id)
+                events = db_manager.get_events_by_session(session_id_int)
+                if events:
+                    df_events = pd.DataFrame(events, columns=['Zaman Damgası', 'Olay Tipi'])
+                    st.write(f"**Oturum ID {session_id_int} için Olay Dökümü:**")
+                    st.dataframe(df_events, use_container_width=True)
+                else:
+                    st.info(f"Oturum ID {session_id_int} için kaydedilmiş bir olay bulunmuyor.")
+            except ValueError:
+                st.error("Geçersiz Oturum ID'si.")
+            except Exception as e:
+                st.error(f"Olaylar getirilirken bir hata oluştu: {e}")
+
     else:
         st.info("Henüz kaydedilmiş bir analiz oturumu bulunmuyor.")
 except Exception as e:
     st.error(f"Geçmiş analizler yüklenirken bir hata oluştu: {e}")
+
+st.divider()
 
 # --- Analiz Butonu ve İşlemleri ---
 if uploaded_file is not None:
@@ -122,7 +152,6 @@ if uploaded_file is not None:
             cv2.putText(annotated_frame, f"Cikis: {counter.exits}", (50, 140), cv2.FONT_HERSHEY_SIMPLEX, 1.5,
                         (0, 0, 255), 3)
 
-            # DÜZELTME: Deprecation uyarısını gidermek için 'use_container_width' kullanıldı.
             stframe.image(annotated_frame, channels="BGR", use_container_width=True)
 
             if total_frames > 0:
@@ -155,13 +184,9 @@ if uploaded_file is not None:
             col1, col2 = st.columns(2)
             col1.metric("Toplam Giriş Yapan Kişi Sayısı", counter.entries)
             col2.metric("Toplam Çıkış Yapan Kişi Sayısı", counter.exits)
-
             st.divider()
 
-            # YENİ: Raporları arayüzden indirme bölümü
             st.subheader("Raporları İndir")
-
-            # JSON verisini hazırla ve indirme butonu oluştur
             json_data = {
                 "session_id": session_id,
                 "summary": {"total_entries": counter.entries, "total_exits": counter.exits},
@@ -174,8 +199,6 @@ if uploaded_file is not None:
                 file_name=f"report_{session_id}.json",
                 mime="application/json"
             )
-
-            # CSV verisini hazırla ve indirme butonu oluştur
             all_logs_df = pd.concat([
                 pd.DataFrame(counter.entry_logs, columns=["Log"]).assign(Tip="Giriş"),
                 pd.DataFrame(counter.exit_logs, columns=["Log"]).assign(Tip="Çıkış")
@@ -187,8 +210,6 @@ if uploaded_file is not None:
                 file_name=f"report_logs_{session_id}.csv",
                 mime="text/csv"
             )
-
-            # Isı haritası görüntüsünü hazırla ve indirme butonu oluştur
             _, buffer = cv2.imencode('.png', final_result_image)
             image_bytes = buffer.tobytes()
             st.download_button(
@@ -197,9 +218,8 @@ if uploaded_file is not None:
                 file_name=f"heatmap_{session_id}.png",
                 mime="image/png"
             )
-
         with tab2:
-            st.subheader("Olay Kayıtları")
+            st.subheader("Güncel Analiz Olay Kayıtları")
             col1, col2 = st.columns(2)
             with col1:
                 st.write("**Giriş Logları**")
@@ -207,9 +227,7 @@ if uploaded_file is not None:
             with col2:
                 st.write("**Çıkış Logları**")
                 st.dataframe(pd.DataFrame(counter.exit_logs, columns=["Çıkış Zamanı ve ID"]), use_container_width=True)
-
         with tab3:
             st.subheader("Genel Yoğunluk Haritası")
             st.image(final_result_image, channels="BGR",
                      caption="Video boyunca en yoğun bölgeleri gösteren ısı haritası.")
-

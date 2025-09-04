@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime
 import os
+from logger_config import logger
 
 
 class DataManager:
@@ -168,10 +169,27 @@ class DataManager:
             print(f"Oturumları getirme hatası: {e}")
             return []
 
+
+    def get_events_by_session(self, session_id):
+        """
+        Belirli bir oturum ID'sine ait tüm giriş/çıkış olaylarını zaman sırasıyla döndürür.
+        """
+        if not self.conn or session_id is None:
+            return []
+        try:
+            self.cursor.execute(
+                "SELECT timestamp, event_type FROM events WHERE session_id = ? ORDER BY timestamp ASC",
+                (session_id,)
+            )
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            logger.exception(f"Oturum ID {session_id} için olaylar getirilirken hata oluştu.")
+            return []
+
     def close_connection(self):
         """
         Veritabanı bağlantısını güvenli bir şekilde kapatır.
         """
         if self.conn:
             self.conn.close()
-            print("Veritabanı bağlantısı kapatıldı.")
+            logger.info("Veritabanı bağlantısı kapatıldı.")

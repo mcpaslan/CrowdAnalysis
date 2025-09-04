@@ -26,6 +26,10 @@ Bu proje, bir video kaynağından (IP kamera, video dosyası vb.) alınan görü
 ### Loglar
 <img src="Results/logs.png" alt="Log" width="500">
 
+### Önceki Oturum Analiz Sonuçları
+<img src="Results/previous_session.png" alt="previous" width="500">
+
+
 
 
 Canlı Analiz Ekranı (Kişi Sayımı ve Giriş/Çıkış)

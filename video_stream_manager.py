@@ -1,4 +1,5 @@
 import cv2
+from logger_config import logger  # YENİ: Merkezi logger'ı import ediyoruz
 
 
 class VideoStreamManager:
@@ -7,15 +8,8 @@ class VideoStreamManager:
     """
 
     def __init__(self, source):
-        """
-        Sınıfın kurucu metodu.
-
-        Args:
-            source (str or int): Video dosyasının yolu (örn: "video/magaza.mp4")
-                                 veya kamera indeksi (örn: 0).
-        """
         self.source = source
-        self.cap = None  # VideoCapture nesnesini başlangıçta None olarak ayarlıyoruz.
+        self.cap = None
         self.is_running = False
 
     def start_stream(self):
@@ -24,25 +18,19 @@ class VideoStreamManager:
         """
         self.cap = cv2.VideoCapture(self.source)
         if not self.cap.isOpened():
-            # Eğer video kaynağı açılamazsa hata ver.
-            print(f"Hata: Video kaynağı açılamadı -> {self.source}")
+            logger.error(f"Hata: Video kaynağı açılamadı -> {self.source}")  # DEĞİŞTİ
             self.is_running = False
             return False
 
         self.is_running = True
-        print("Video akışı başarıyla başlatıldı.")
+        logger.info(f"Video akışı başarıyla başlatıldı: {self.source}")  # DEĞİŞTİ
         return True
 
     def get_frame(self):
         """
         Akıştan bir sonraki kareyi (frame) okur.
-
-        Returns:
-            tuple: (ret, frame)
-                   ret (bool): Kare başarıyla okunduysa True.
-                   frame (numpy.ndarray): Okunan görüntü karesi.
         """
-        if not self.is_running:
+        if not self.is_running or self.cap is None:
             return False, None
 
         ret, frame = self.cap.read()
@@ -55,4 +43,4 @@ class VideoStreamManager:
         if self.cap is not None:
             self.cap.release()
         self.is_running = False
-        print("Video akışı durduruldu.")
+        logger.info("Video akışı durduruldu.")  # DEĞİŞTİ

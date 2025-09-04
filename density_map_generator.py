@@ -55,4 +55,4 @@ class DensityMapGenerator:
         # Renklendir
         heatmap_color_image = cv2.applyColorMap(norm_map, cv2.COLORMAP_JET)
 
-        return heatmap_color_imageanerev
+        return heatmap_color_image
